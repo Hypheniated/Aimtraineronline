@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aim Trainer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+      cursor: none;
+    }
+    #ui {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 40px;
+      z-index: 10;
+    }
+    .stat {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 10px 24px;
+      text-align: center;
+      color: #fff;
+    }
+    .stat-label { font-size: 12px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 28px; font-weight: bold; margin-top: 2px; }
+    #accuracy-value { color: #4CAF50; }
+    #timer-value { color: #64b5f6; }
+    #hits-value { color: #fff; }
+    #aimbot-badge {
+      display: none;
+      position: fixed;
+      top: 16px;
+      right: 24px;
+      background: #f44336;
+      color: #fff;
+      font-size: 13px;
+      font-weight: bold;
+      padding: 6px 14px;
+      border-radius: 8px;
+      z-index: 20;
+      letter-spacing: 1px;
+    }
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      color: #555;
+      font-size: 13px;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div id="ui">
+  <div class="stat">
+    <div class="stat-label">Accuracy</div>
+    <div class="stat-value" id="accuracy-value">100%</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Timer</div>
+    <div class="stat-value" id="timer-value">60s</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Hits / Shots</div>
+    <div class="stat-value" id="hits-value">0 / 0</div>
+  </div>
+</div>
+
+<div id="aimbot-badge">🤖 AIMBOT ON</div>
+<div id="hint">Press X to toggle aimbot</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+
+  // --- State ---
+  let mouseX = canvas.width / 2;
+  let mouseY = canvas.height / 2;
+  let crossX = canvas.width / 2;
+  let crossY = canvas.height / 2;
+
+  let shots = 0;
+  let hits = 0;
+  let accuracy = 100;
+  let timeLeft = 60;
+  let aimbotOn = false;
+  let aimbotTarget = null;
+
+  // --- Targets ---
+  let targets = [];
+  const TARGET_COUNT = 5;
+
+  function randomTarget() {
+    const margin = 60;
+    const r = 20 + Math.random() * 20;
+    return {
+      x: margin + Math.random() * (canvas.width - margin * 2),
+      y: 100 + Math.random() * (canvas.height - 160),
+      r,
+      alpha: 1,
+      hit: false
+    };
+  }
+
+  function spawnTargets() {
+    targets = [];
+    for (let i = 0; i < TARGET_COUNT; i++) targets.push(randomTarget());
+  }
+
+  spawnTargets();
+
+  // --- UI ---
+  const accuracyEl = document.getElementById('accuracy-value');
+  const timerEl = document.getElementById('timer-value');
+  const hitsEl = document.getElementById('hits-value');
+  const aimbotBadge = document.getElementById('aimbot-badge');
+
+  function updateUI() {
+    accuracyEl.textContent = accuracy + '%';
+    accuracyEl.style.color = accuracy >= 75 ? '#4CAF50' : accuracy >= 50 ? '#FFC107' : '#f44336';
+    timerEl.textContent = timeLeft + 's';
+    hitsEl.textContent = hits + ' / ' + shots;
+  }
+
+  // --- Timer ---
+  setInterval(() => {
+    timeLeft--;
+    if (timeLeft <= 0) {
+      timeLeft = 60;
+      shots = 0;
+      hits = 0;
+      accuracy = 100;
+      spawnTargets();
+    }
+    updateUI();
+  }, 1000);
+
+  // --- Mouse ---
+  canvas.addEventListener('mousemove', e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    if (!aimbotOn) {
+      crossX = mouseX;
+      crossY = mouseY;
+    }
+  });
+
+  // --- Click ---
+  canvas.addEventListener('click', () => {
+    if (aimbotOn) return; // aimbot handles its own clicks
+
+    shots++;
+    let gotHit = false;
+
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const dist = Math.hypot(crossX - t.x, crossY - t.y);
+      if (dist <= t.r) {
+        hits++;
+        gotHit = true;
+        targets[i] = randomTarget(); // replace target
+        break;
+      }
+    }
+
+    if (!gotHit) {
+      // Miss — lower accuracy
+    }
+
+    accuracy = shots === 0 ? 100 : Math.round((hits / shots) * 100);
+    updateUI();
+  });
+
+  // --- Aimbot ---
+  let aimbotInterval = null;
+
+  function pickAimbotTarget() {
+    if (targets.length === 0) return null;
+    // Pick closest target to crosshair
+    let best = null, bestDist = Infinity;
+    for (const t of targets) {
+      const d = Math.hypot(crossX - t.x, crossY - t.y);
+      if (d < bestDist) { bestDist = d; best = t; }
+    }
+    return best;
+  }
+
+  function startAimbot() {
+    aimbotInterval = setInterval(() => {
+      aimbotTarget = pickAimbotTarget();
+      if (!aimbotTarget) return;
+
+      // Smoothly move crosshair toward target
+      const dx = aimbotTarget.x - crossX;
+      const dy = aimbotTarget.y - crossY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 3) {
+        // On target — click it
+        crossX = aimbotTarget.x;
+        crossY = aimbotTarget.y;
+        shots++;
+        hits++;
+        accuracy = Math.round((hits / shots) * 100);
+        const idx = targets.indexOf(aimbotTarget);
+        if (idx !== -1) targets[idx] = randomTarget();
+        aimbotTarget = null;
+        updateUI();
+      } else {
+        // Move toward target (speed: 18px per tick)
+        const speed = 18;
+        crossX += (dx / dist) * Math.min(speed, dist);
+        crossY += (dy / dist) * Math.min(speed, dist);
+      }
+    }, 16);
+  }
+
+  function stopAimbot() {
+    clearInterval(aimbotInterval);
+    aimbotInterval = null;
+    aimbotTarget = null;
+    crossX = mouseX;
+    crossY = mouseY;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'x' || e.key === 'X') {
+      aimbotOn = !aimbotOn;
+      aimbotBadge.style.display = aimbotOn ? 'block' : 'none';
+      if (aimbotOn) startAimbot();
+      else stopAimbot();
+    }
+  });
+
+  // --- Draw ---
+  function drawCrosshair(x, y, isAimbot) {
+    const size = 14;
+    const gap = 5;
+    const color = isAimbot ? '#f44336' : '#fff';
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+
+    // Horizontal lines
+    ctx.beginPath();
+    ctx.moveTo(x - size, y); ctx.lineTo(x - gap, y);
+    ctx.moveTo(x + gap, y);  ctx.lineTo(x + size, y);
+    // Vertical lines
+    ctx.moveTo(x, y - size); ctx.lineTo(x, y - gap);
+    ctx.moveTo(x, y + gap);  ctx.lineTo(x, y + size);
+    ctx.stroke();
+
+    // Center dot
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(x, y, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer circle
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(x, y, size + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.shadowBlur = 0;
+  }
+
+  function drawTargets() {
+    for (const t of targets) {
+      // Outer ring
+      ctx.strokeStyle = '#f44336';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner ring
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Center dot
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawTargets();
+    drawCrosshair(crossX, crossY, aimbotOn);
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+  updateUI();
+</script>
+</body>
+</html>

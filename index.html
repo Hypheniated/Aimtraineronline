@@ -51,9 +51,13 @@
       z-index: 10;
     }
     #sens-display span { color: #fff; font-weight: bold; }
-
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      color: #555;
+      font-size: 13px;
+    }
     canvas { display: block; }
-
     #results {
       display: none;
       position: fixed;
@@ -121,6 +125,7 @@
 </div>
 
 <div id="sens-display">Sens: <span id="sens-value">5</span> &nbsp;|&nbsp; F = up &nbsp; S = down</div>
+<div id="hint">Press X to toggle aimbot</div>
 
 <div id="results">
   <div id="results-box">
@@ -188,7 +193,7 @@
     return {
       x: margin + Math.random() * (canvas.width - margin * 2),
       y: 100 + Math.random() * (canvas.height - 160),
-      r
+      r, alpha: 1, hit: false
     };
   }
 
@@ -270,11 +275,13 @@
     if (aimbotOn) return;
     if (resultsEl.classList.contains('show')) return;
     shots++;
+    let gotHit = false;
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
       const dist = Math.hypot(crossX - t.x, crossY - t.y);
       if (dist <= t.r) {
         hits++;
+        gotHit = true;
         targets[i] = randomTarget();
         break;
       }
@@ -286,6 +293,7 @@
   let aimbotInterval = null;
 
   function pickAimbotTarget() {
+    if (targets.length === 0) return null;
     let best = null, bestDist = Infinity;
     for (const t of targets) {
       const d = Math.hypot(crossX - t.x, crossY - t.y);
@@ -309,6 +317,7 @@
         accuracy = Math.round((hits / shots) * 100);
         const idx = targets.indexOf(aimbotTarget);
         if (idx !== -1) targets[idx] = randomTarget();
+        aimbotTarget = null;
         updateUI();
       } else {
         const speed = 18;
@@ -321,6 +330,7 @@
   function stopAimbot() {
     clearInterval(aimbotInterval);
     aimbotInterval = null;
+    aimbotTarget = null;
     crossX = mouseX;
     crossY = mouseY;
   }
@@ -360,6 +370,13 @@
     ctx.beginPath();
     ctx.arc(x, y, 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(x, y, size + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
   }
 
   function drawTargets() {

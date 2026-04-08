@@ -58,8 +58,6 @@
       font-size: 13px;
     }
     canvas { display: block; }
-
-    /* Results overlay */
     #results {
       display: none;
       position: fixed;
@@ -129,7 +127,6 @@
 <div id="sens-display">Sens: <span id="sens-value">5</span> &nbsp;|&nbsp; F = up &nbsp; S = down</div>
 <div id="hint">Press X to toggle aimbot</div>
 
-<!-- Results Screen -->
 <div id="results">
   <div id="results-box">
     <h2>ROUND COMPLETE</h2>
@@ -168,7 +165,6 @@
     canvas.height = window.innerHeight;
   });
 
-  // --- State ---
   let mouseX = canvas.width / 2;
   let mouseY = canvas.height / 2;
   let crossX = canvas.width / 2;
@@ -183,8 +179,11 @@
   let sens = 5;
 
   const sensEl = document.getElementById('sens-value');
+  const accuracyEl = document.getElementById('accuracy-value');
+  const timerEl = document.getElementById('timer-value');
+  const hitsEl = document.getElementById('hits-value');
+  const resultsEl = document.getElementById('results');
 
-  // --- Targets ---
   let targets = [];
   const TARGET_COUNT = 5;
 
@@ -205,11 +204,6 @@
 
   spawnTargets();
 
-  // --- UI ---
-  const accuracyEl = document.getElementById('accuracy-value');
-  const timerEl = document.getElementById('timer-value');
-  const hitsEl = document.getElementById('hits-value');
-
   function updateUI() {
     accuracyEl.textContent = accuracy + '%';
     accuracyEl.style.color = accuracy >= 75 ? '#4CAF50' : accuracy >= 50 ? '#FFC107' : '#f44336';
@@ -217,7 +211,6 @@
     hitsEl.textContent = hits + ' / ' + shots;
   }
 
-  // --- Results ---
   function getRating(acc) {
     if (acc >= 90) return '🏆 Elite';
     if (acc >= 75) return '🔥 Great';
@@ -229,7 +222,6 @@
   function showResults() {
     const finalAcc = shots === 0 ? 100 : Math.round((hits / shots) * 100);
     const misses = shots - hits;
-
     document.getElementById('result-accuracy').textContent = finalAcc + '%';
     document.getElementById('result-accuracy').style.color =
       finalAcc >= 75 ? '#4CAF50' : finalAcc >= 50 ? '#FFC107' : '#f44336';
@@ -237,7 +229,7 @@
     document.getElementById('result-shots').textContent = shots;
     document.getElementById('result-misses').textContent = misses;
     document.getElementById('result-rating').textContent = getRating(finalAcc);
-    document.getElementById('results').classList.add('show');
+    resultsEl.classList.add('show');
     document.body.style.cursor = 'default';
   }
 
@@ -248,15 +240,14 @@
     timeLeft = 60;
     spawnTargets();
     updateUI();
-    document.getElementById('results').classList.remove('show');
+    resultsEl.classList.remove('show');
     document.body.style.cursor = 'none';
   }
 
   document.getElementById('play-again').addEventListener('click', resetGame);
 
-  // --- Timer ---
   setInterval(() => {
-    if (document.getElementById('results').classList.contains('show')) return;
+    if (resultsEl.classList.contains('show')) return;
     timeLeft--;
     if (timeLeft <= 0) {
       showResults();
@@ -265,7 +256,6 @@
     updateUI();
   }, 1000);
 
-  // --- Mouse ---
   canvas.addEventListener('mousemove', e => {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
@@ -281,14 +271,11 @@
     }
   });
 
-  // --- Click ---
   canvas.addEventListener('click', () => {
     if (aimbotOn) return;
-    if (document.getElementById('results').classList.contains('show')) return;
-
+    if (resultsEl.classList.contains('show')) return;
     shots++;
     let gotHit = false;
-
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
       const dist = Math.hypot(crossX - t.x, crossY - t.y);
@@ -299,12 +286,10 @@
         break;
       }
     }
-
     accuracy = shots === 0 ? 100 : Math.round((hits / shots) * 100);
     updateUI();
   });
 
-  // --- Aimbot ---
   let aimbotInterval = null;
 
   function pickAimbotTarget() {
@@ -350,7 +335,6 @@
     crossY = mouseY;
   }
 
-  // --- Keys ---
   document.addEventListener('keydown', e => {
     if (e.key === 'x' || e.key === 'X') {
       aimbotOn = !aimbotOn;
@@ -367,7 +351,6 @@
     }
   });
 
-  // --- Draw ---
   function drawCrosshair(x, y, isAimbot) {
     const size = 14;
     const gap = 5;
